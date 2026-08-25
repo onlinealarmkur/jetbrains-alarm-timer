@@ -1,0 +1,92 @@
+<idea-plugin url="https://onlinealarmkur.com/en/">
+    <id>com.onlinealarmkur.idea</id>
+    <name>Alarm &amp; Timer</name>
+    <vendor url="https://onlinealarmkur.com/en/">onlinealarmkur.com</vendor>
+    <idea-version since-build="252"/>
+    <description><![CDATA[
+      <p>Set one-time alarms and time-based reminders, or run multiple countdown timers inside your JetBrains IDE.</p>
+      <h3>Open and start</h3>
+      <ol>
+        <li>Choose <strong>Tools → Alarm &amp; Timer → Open Alarm &amp; Timer</strong>. You can also use <strong>View → Tool Windows → Alarm &amp; Timer</strong>.</li>
+        <li>Select the <strong>Alarm</strong> or <strong>Timer</strong> tab, enter a time or duration, then click <strong>Set Alarm</strong> or <strong>Start Timer</strong>.</li>
+      </ol>
+      <p>The <strong>Tools → Alarm &amp; Timer</strong> menu also provides <strong>Set an Alarm</strong> and <strong>Start a Timer</strong> shortcuts.</p>
+      <p>Use the checkmarked <strong>Tools → Alarm &amp; Timer → Alert Sound</strong> item to turn alert sound on or off. To change its volume or test it, choose <strong>Tools → Alarm &amp; Timer → Settings…</strong>, then use the <strong>Alerts</strong> section.</p>
+      <p>Join a meeting at a specific time, check a build after a short wait, or remember to take a break without leaving your IDE.</p>
+      <ul>
+        <li>Set one-time alarms in 12-hour or 24-hour time, with an optional date and label.</li>
+        <li>Start multiple countdown timers with flexible duration formats or six quick presets.</li>
+        <li>Edit or cancel alarms; pause, resume, restart, or cancel timers.</li>
+        <li>See the nearest active item as a countdown in the IDE status bar.</li>
+        <li>Receive a JetBrains IDE notification with a Dismiss action and optional local procedural sound.</li>
+        <li>Restore active items after restart and classify older overdue items as Missed using a configurable recovery window.</li>
+      </ul>
+      <p>Items and settings are stored locally and shared across open projects. No audio files are downloaded, no project files are read, no telemetry is collected, and no automatic network requests are made.</p>
+      <p>The plugin follows the IDE UI language in English, Brazilian Portuguese, French, German, Japanese, Korean, Russian, Simplified Chinese, Spanish, or Turkish, with English as the fallback.</p>
+      <p><strong>IDE availability:</strong> Alarms and timers can alert you only while a compatible JetBrains IDE is running. Minimizing the IDE does not stop alerts. Closing the IDE or system sleep delays delivery. Eligible overdue items are handled after startup or activation.</p>
+      <h3>Web versions</h3>
+      <ul>
+        <li><a href="https://onlinealarmkur.com/en/">Online alarm clock</a></li>
+        <li><a href="https://onlinealarmkur.com/timer/en/">Online timer</a></li>
+        <li><a href="https://github.com/onlinealarmkur/jetbrains-alarm-timer">Documentation</a></li>
+      </ul>
+    ]]></description>
+    <resource-bundle>messages.AlarmTimerBundle</resource-bundle>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <iconMapper mappingFile="AlarmTimerIconMappings.json"/>
+        <toolWindow id="Alarm &amp; Timer"
+                    anchor="right"
+                    icon="/icons/alarmTimer.svg"
+                    factoryClass="com.onlinealarmkur.jetbrains.ui.AlarmTimerToolWindowFactory"/>
+        <notificationGroup id="Alarm &amp; Timer alerts"
+                           key="notification.group.name"
+                           displayType="BALLOON"
+                           isLogByDefault="true"/>
+        <applicationConfigurable id="com.onlinealarmkur.jetbrains.settings"
+                                 parentId="tools"
+                                 key="settings.display.name"
+                                 bundle="messages.AlarmTimerBundle"
+                                 instance="com.onlinealarmkur.jetbrains.settings.AlarmTimerConfigurable"/>
+        <statusBarWidgetFactory id="AlarmTimer.NextItem"
+                                implementation="com.onlinealarmkur.jetbrains.ui.AlarmTimerStatusBarWidgetFactory"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="com.onlinealarmkur.jetbrains.service.AlarmTimerLifecycleListener"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+        <listener class="com.onlinealarmkur.jetbrains.service.AlarmTimerLifecycleListener"
+                  topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+    </applicationListeners>
+
+    <actions resource-bundle="messages.AlarmTimerBundle">
+        <action id="AlarmTimer.Open" class="com.onlinealarmkur.jetbrains.actions.OpenToolWindowAction"/>
+        <action id="AlarmTimer.SetAlarm" class="com.onlinealarmkur.jetbrains.actions.SetAlarmAction"/>
+        <action id="AlarmTimer.StartTimer" class="com.onlinealarmkur.jetbrains.actions.StartTimerAction"/>
+        <action id="AlarmTimer.ToggleSound" class="com.onlinealarmkur.jetbrains.actions.ToggleSoundAction"/>
+        <action id="AlarmTimer.DismissAll" class="com.onlinealarmkur.jetbrains.actions.DismissAllAlertsAction"/>
+        <action id="AlarmTimer.ClearCompleted" class="com.onlinealarmkur.jetbrains.actions.ClearCompletedAction"/>
+        <action id="AlarmTimer.OpenSettings" class="com.onlinealarmkur.jetbrains.actions.OpenSettingsAction"/>
+        <action id="AlarmTimer.OpenAlarmWebsite" class="com.onlinealarmkur.jetbrains.actions.OpenAlarmWebsiteAction"/>
+        <action id="AlarmTimer.OpenTimerWebsite" class="com.onlinealarmkur.jetbrains.actions.OpenTimerWebsiteAction"/>
+        <action id="AlarmTimer.OpenDocumentation" class="com.onlinealarmkur.jetbrains.actions.OpenDocumentationAction"/>
+        <group id="AlarmTimer.ToolsMenu" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <reference ref="AlarmTimer.Open"/>
+            <reference ref="AlarmTimer.SetAlarm"/>
+            <reference ref="AlarmTimer.StartTimer"/>
+            <separator/>
+            <reference ref="AlarmTimer.ToggleSound"/>
+            <reference ref="AlarmTimer.DismissAll"/>
+            <reference ref="AlarmTimer.ClearCompleted"/>
+            <separator/>
+            <reference ref="AlarmTimer.OpenSettings"/>
+            <separator/>
+            <reference ref="AlarmTimer.OpenAlarmWebsite"/>
+            <reference ref="AlarmTimer.OpenTimerWebsite"/>
+            <reference ref="AlarmTimer.OpenDocumentation"/>
+        </group>
+    </actions>
+</idea-plugin>

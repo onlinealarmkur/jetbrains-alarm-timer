@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <rect id="alarm-head" x="7.8" y="1.25" width="4.4" height="2.4" rx="1.2" fill="#CED0D6"/>
+  <rect x="9.2" y="3.25" width="1.6" height="1.4" fill="#CED0D6"/>
+  <circle id="body" cx="10" cy="11.2" r="6.8" fill="none" stroke="#CED0D6" stroke-width="2"/>
+  <path id="hour-hand" d="M10 11.2L6.1 10.95" fill="none" stroke="#CED0D6" stroke-width="1.75" stroke-linecap="round"/>
+  <path id="minute-hand" d="M10 11.2L14.05 7.55" fill="none" stroke="#CED0D6" stroke-width="1.55" stroke-linecap="round"/>
+  <circle id="hub" cx="10" cy="11.2" r="1.1" fill="#CED0D6"/>
+</svg>
