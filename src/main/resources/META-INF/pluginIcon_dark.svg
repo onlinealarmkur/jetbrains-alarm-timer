@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <defs>
+    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6258"/>
+      <stop offset="1" stop-color="#F43E38"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#303640"/>
+      <stop offset="1" stop-color="#1D2229"/>
+    </linearGradient>
+    <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFDC60"/>
+      <stop offset="1" stop-color="#FFC22E"/>
+    </linearGradient>
+  </defs>
+  <rect id="body" x="3" y="5" width="34" height="32" rx="8.5" fill="url(#red)"/>
+  <circle id="dial" cx="20" cy="22" r="13" fill="url(#face)"/>
+  <rect id="alarm-head" x="13.25" y="2.6" width="13.5" height="4.25" rx="2.125" fill="url(#yellow)"/>
+  <g fill="#FFD044">
+    <rect id="top-marker" x="19.25" y="11.1" width="1.5" height="3.1" rx="0.75"/>
+    <rect id="bottom-marker" x="19.25" y="29.8" width="1.5" height="3.1" rx="0.75"/>
+  </g>
+  <path id="hour-hand" d="M20 22L12.6 21.6" fill="none" stroke="#FFD044" stroke-width="1.9" stroke-linecap="round"/>
+  <path id="minute-hand" d="M20 22L28.35 14.45" fill="none" stroke="#FFD044" stroke-width="1.7" stroke-linecap="round"/>
+  <circle id="hub" cx="20" cy="22" r="1.55" fill="#FFD044"/>
+</svg>

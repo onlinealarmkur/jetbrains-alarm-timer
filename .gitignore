@@ -1,0 +1,49 @@
+.gradle/
+.kotlin/
+.intellijPlatform/
+.jdk*/
+.idea/
+.run/
+build/
+dist/
+out/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
+hs_err_pid*
+
+# Local environment and signing material. GitHub Actions receives signing
+# credentials only through encrypted repository/environment secrets.
+.env
+.env.*
+!.env.example
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Local AI-agent instructions, configuration, and implementation plans.
+# Keep these available to local tools without publishing them in the repository.
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.continue/
+/.windsurf/
+/plans/
+/sandbox/
+
+# Locally generated release downloads and checksums. The release workflow owns
+# the authoritative signed ZIP and SHA-256 asset.
+/*.zip
+/*.sha256
+
+# Local-only source material and advisor artifacts; never package or publish.
+/Logo.svg
