@@ -18,7 +18,6 @@ import com.onlinealarmkur.jetbrains.domain.ElapsedTimeSource
 import com.onlinealarmkur.jetbrains.domain.ItemStatus
 import com.onlinealarmkur.jetbrains.domain.LIVE_NEAR_THRESHOLD_MS
 import com.onlinealarmkur.jetbrains.domain.ScheduledItem
-import com.onlinealarmkur.jetbrains.domain.SystemElapsedTimeSource
 import com.onlinealarmkur.jetbrains.notifications.SoundPlayer
 import com.onlinealarmkur.jetbrains.persistence.PersistedState
 import com.onlinealarmkur.jetbrains.persistence.StateCodec
@@ -66,7 +65,7 @@ class AlarmTimerService internal constructor(
 ) : PersistentStateComponent<PersistedState>, Disposable {
     constructor() : this(
         Clock.systemDefaultZone(),
-        SystemElapsedTimeSource,
+        SuspendAwareElapsedTimeSource(),
         ExecutorAlarmScheduler(),
         SoundPlayer(),
         PlatformStateSaver(),

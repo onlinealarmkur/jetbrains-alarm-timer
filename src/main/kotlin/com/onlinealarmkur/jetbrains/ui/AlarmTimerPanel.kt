@@ -295,13 +295,14 @@ class AlarmTimerPanel : JPanel(BorderLayout()), Disposable {
                 create = { target, label -> service.scheduleAlarm(target, label) },
                 edit = service::editAlarm,
             )
+            if (result == AlarmSubmissionResult.STALE_EDIT) alarmTimeState.retainDraft()
             updateAlarmEditControls()
-            alarmTimeState.clearSecondsPreference()
-            alarmLabel.text = ""
-            alarmDate.text = ""
             check(result != AlarmSubmissionResult.STALE_EDIT) {
                 AlarmTimerBundle.message("panel.error.edit.failed")
             }
+            alarmTimeState.clearSecondsPreference()
+            alarmLabel.text = ""
+            alarmDate.text = ""
         } catch (error: Throwable) {
             showInputFailure(error, "panel.error.alarm.invalid")
         }
@@ -640,6 +641,7 @@ internal class AlarmTimeFieldState(
     private var includeSeconds = false
     private var use24HourTime = initialUse24HourTime
     private var generatedText = formatGenerated()
+    private var retainedDraft = false
 
     val initialText: String get() = generatedText
 
@@ -648,6 +650,7 @@ internal class AlarmTimeFieldState(
         use24HourTime: Boolean,
         includeSeconds: Boolean,
     ): String {
+        retainedDraft = false
         generatedTime = time
         this.use24HourTime = use24HourTime
         this.includeSeconds = includeSeconds
@@ -657,7 +660,7 @@ internal class AlarmTimeFieldState(
 
     /**
      * Returns a freshly generated text for [time], or `null` when the field must not be touched:
-     * the user typed into it, it holds the caret, or an alarm edit is in progress.
+     * the user typed into it, it holds a retained draft or the caret, or an alarm edit is in progress.
      */
     fun regenerate(
         time: LocalTime,
@@ -665,18 +668,25 @@ internal class AlarmTimeFieldState(
         fieldFocused: Boolean,
         isEditing: Boolean,
     ): String? {
-        if (fieldFocused || isEditing || currentText != generatedText) return null
+        if (retainedDraft || fieldFocused || isEditing || currentText != generatedText) return null
         generatedTime = time
         generatedText = formatGenerated()
         return generatedText
     }
 
+    /** A failed save owns its time as draft text, even if only its label or date was edited. */
+    fun retainDraft() {
+        retainedDraft = true
+    }
+
     /**
-     * Stops later generated times from carrying seconds. [generatedText] is deliberately left alone:
+     * Releases a submitted/cancelled draft and stops later generated times from carrying seconds.
+     * [generatedText] is deliberately left alone:
      * it tracks the text this state last handed to the field, so recomputing it here would make the
      * field look user-typed and would block [regenerate] for the rest of the session.
      */
     fun clearSecondsPreference() {
+        retainedDraft = false
         includeSeconds = false
     }
 
@@ -684,9 +694,11 @@ internal class AlarmTimeFieldState(
         if (newUse24HourTime == use24HourTime) {
             return AlarmTimeFieldUpdate(currentText, formatChanged = false)
         }
-        val wasGenerated = currentText == generatedText
+        val wasGenerated = !retainedDraft && currentText == generatedText
         use24HourTime = newUse24HourTime
-        generatedText = formatGenerated()
+        // Keep the last field value as the marker until its draft is released. Otherwise a format
+        // change would leave a successfully submitted draft looking user-typed forever.
+        if (!retainedDraft) generatedText = formatGenerated()
         return AlarmTimeFieldUpdate(
             text = if (wasGenerated) generatedText else currentText,
             formatChanged = true,

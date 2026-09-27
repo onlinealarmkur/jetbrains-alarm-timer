@@ -18,26 +18,21 @@ import kotlin.math.sign
 
 class JavaxSoundBackendTest {
     @Test
-    fun `gain decibels follow the pinned percent to decibel curve`() {
-        // 20 * log10(100 / 100.0) = 20 * 0 = 0
-        assertEquals(0.0, gainDecibels(100), TIGHT_DELTA)
-        // 20 * log10(50 / 100.0) = 20 * -0.301029995663981 = -6.020599913279624
-        assertEquals(-6.0206, gainDecibels(50), 1e-3)
-        // 20 * log10(1 / 100.0) = 20 * -2 = -40
-        assertEquals(-40.0, gainDecibels(1), TIGHT_DELTA)
-        // 20 * log10(70 / 100.0) = 20 * -0.154901959985743 = -3.098039199714864
-        assertEquals(-3.0980392, gainDecibels(70), 1e-6)
-        // 20 * log10(25 / 100.0) = 20 * -0.602059991327962 = -12.041199826559248
-        assertEquals(-12.0411998, gainDecibels(25), 1e-6)
+    fun `software volume scales every signed PCM sample without changing timing`() {
+        val full = toneBytes(100)
+        listOf(1, 25, 50, 70).forEach { volume ->
+            val scaled = toneBytes(volume)
+            assertEquals(full.size, scaled.size)
+            repeat(full.size / 2) { index ->
+                assertEquals(full.sampleAt(index) * volume / 100.0, scaled.sampleAt(index).toDouble(), 1.0)
+            }
+        }
     }
 
     @Test
-    fun `gain decibels clamp volumes outside one to one hundred`() {
-        assertEquals(gainDecibels(1), gainDecibels(0))
-        assertEquals(gainDecibels(1), gainDecibels(-5))
-        assertEquals(gainDecibels(1), gainDecibels(Int.MIN_VALUE))
-        assertEquals(gainDecibels(100), gainDecibels(150))
-        assertEquals(gainDecibels(100), gainDecibels(Int.MAX_VALUE))
+    fun `software volume clamps safely including complete silence`() {
+        listOf(Int.MIN_VALUE, -5, 0).forEach { assertTrue(toneBytes(it).all { sample -> sample == ZERO_BYTE }) }
+        listOf(100, 150, Int.MAX_VALUE).forEach { assertTrue(toneBytes(100).contentEquals(toneBytes(it))) }
     }
 
     @Test
@@ -113,8 +108,8 @@ class JavaxSoundBackendTest {
         assertEquals(1, created)
         assertEquals(listOf("clip:open", "clip:isControlSupported", "clip:getControl", "clip:loop:-1"), events)
         assertEquals(-1, Clip.LOOP_CONTINUOUSLY)
-        assertEquals(gainDecibels(70).toFloat(), control.value)
-        assertEquals(-3.0980392f, control.value, 1e-6f)
+        assertEquals(0f, control.value, "Hardware gain must not attenuate the software-scaled tone again.")
+        assertTrue(toneBytes(70).contentEquals(clip.openedAudio.single()))
 
         assertEquals(1, clip.openedStreams.size)
         val stream = clip.openedStreams[0]
@@ -222,7 +217,7 @@ class JavaxSoundBackendTest {
     }
 
     @Test
-    fun `a clip without a master gain control still loops`() {
+    fun `a clip without a master gain control receives the selected volume`() {
         val events = mutableListOf<String>()
         val clip = FakeClip("clip", events)
         val backend = JavaxSoundBackend(headless = { false }, clipFactory = { clip })
@@ -231,22 +226,23 @@ class JavaxSoundBackendTest {
 
         assertEquals(listOf("clip:open", "clip:isControlSupported", "clip:loop:-1"), events)
         assertFalse(events.contains("clip:getControl"))
+        assertTrue(toneBytes(70).contentEquals(clip.openedAudio.single()))
+        backend.play(1)
+        assertTrue(toneBytes(1).contentEquals(clip.openedAudio.last()))
+        assertFalse(clip.openedAudio.first().contentEquals(clip.openedAudio.last()))
     }
 
     @Test
-    fun `the gain is clamped into the range the control reports`() {
+    fun `neutral hardware gain respects a control which only permits attenuation`() {
         val events = mutableListOf<String>()
-        val control = FakeGainControl(minimum = -1.5f, maximum = 6f)
+        val control = FakeGainControl(minimum = -80f, maximum = -1.5f)
         val clip = FakeClip("clip", events, gainControl = control)
         val backend = JavaxSoundBackend(headless = { false }, clipFactory = { clip })
 
         backend.play(50)
 
-        assertTrue(
-            gainDecibels(50) < control.minimum.toDouble(),
-            "This case only proves clamping while 50% sits below the control minimum.",
-        )
         assertEquals(-1.5f, control.value)
+        assertTrue(toneBytes(50).contentEquals(clip.openedAudio.single()))
         assertEquals(listOf("clip:open", "clip:isControlSupported", "clip:getControl", "clip:loop:-1"), events)
     }
 
@@ -276,12 +272,14 @@ class JavaxSoundBackendTest {
         private val openFailure: Throwable? = null,
     ) : Clip {
         val openedStreams = mutableListOf<AudioInputStream>()
+        val openedAudio = mutableListOf<ByteArray>()
 
         override fun open(stream: AudioInputStream) {
             events += "$name:open"
             openedStreams += stream
             val failure = openFailure
             if (failure != null) throw failure
+            openedAudio += stream.readAllBytes()
         }
 
         override fun isControlSupported(control: Control.Type): Boolean {
@@ -385,6 +383,5 @@ class JavaxSoundBackendTest {
 
     private companion object {
         const val ZERO_BYTE: Byte = 0
-        const val TIGHT_DELTA = 1e-9
     }
 }

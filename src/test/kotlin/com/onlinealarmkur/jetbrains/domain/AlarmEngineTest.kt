@@ -252,6 +252,49 @@ class AlarmEngineTest {
     }
 
     @Test
+    fun `saving an overdue live timer preserves lateness across wall corrections and restart`() {
+        engine.startTimer(1_000, "Old timer", "timer")
+        elapsedTime.advanceMillis(600_000)
+        clock.advanceMillis(-3_600_000)
+
+        val persisted = StateCodec.decode(StateCodec.encode(AlarmTimerSettings(), engine.persistenceSnapshot())).items
+        assertEquals(clock.millis() - 599_000, persisted.single().targetEpochMs)
+        val restarted = AlarmEngine(clock, MutableElapsedTimeSource())
+        restarted.restore(persisted)
+
+        val due = restarted.checkDueAfterStartup(300_000).single()
+        assertFalse(due.shouldAlert)
+        assertEquals(ItemStatus.MISSED, due.item.status)
+    }
+
+    @Test
+    fun `saving restored timers before startup recovery preserves original wall deadlines`() {
+        val original = engine.startTimer(1_000, "Old timer", "timer")
+        clock.advanceMillis(600_000)
+        engine.restore(listOf(original))
+
+        repeat(2) {
+            val persisted = engine.persistenceSnapshot()
+            assertEquals(original.targetEpochMs, persisted.single().targetEpochMs)
+            engine.restore(persisted)
+        }
+        assertFalse(engine.checkDueAfterStartup(300_000).single().shouldAlert)
+    }
+
+    @Test
+    fun `saving an overdue timer inside grace retains eligibility without resetting its deadline`() {
+        val timer = engine.startTimer(1_000, "Recent timer", "timer")
+        clock.advanceMillis(3_000)
+        elapsedTime.advanceMillis(3_000)
+        val persisted = engine.persistenceSnapshot()
+        assertEquals(timer.targetEpochMs, persisted.single().targetEpochMs)
+
+        engine.restore(persisted)
+        assertTrue(engine.checkDueAfterStartup(2_000).single().shouldAlert)
+        assertTrue(engine.checkDueAfterStartup(2_000).isEmpty())
+    }
+
+    @Test
     fun `restored timer anchors to elapsed time and startup recovery handles suspend`() {
         val restored = restoredItem(
             id = "timer",

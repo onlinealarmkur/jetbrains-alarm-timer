@@ -316,6 +316,47 @@ class AlarmTimerPanelTest {
     }
 
     @Test
+    fun `retained generated time is treated as draft text through refresh and format changes`() {
+        val state = AlarmTimeFieldState(LocalTime.of(9, 5), initialUse24HourTime = true)
+        val draft = state.programmaticText(LocalTime.of(14, 30, 15), true, true)
+        state.retainDraft()
+
+        assertNull(state.regenerate(LocalTime.of(17, 5), draft, false, false))
+        val updated = state.updateFormat(newUse24HourTime = false, currentText = draft)
+        assertEquals(draft, updated.text)
+        assertTrue(updated.formatChanged)
+        assertNull(state.regenerate(LocalTime.of(18, 5), updated.text, false, false))
+        assertEquals(draft, state.updateFormat(newUse24HourTime = true, currentText = draft).text)
+    }
+
+    @Test
+    fun `successful submission releases a retained time for future suggestions`() {
+        listOf(false, true).forEach { changeFormat ->
+            val state = AlarmTimeFieldState(LocalTime.of(9, 5), initialUse24HourTime = true)
+            val draft = state.programmaticText(LocalTime.of(14, 30, 15), true, true)
+            state.retainDraft()
+            if (changeFormat) assertEquals(draft, state.updateFormat(false, draft).text)
+
+            state.clearSecondsPreference()
+
+            assertEquals(
+                if (changeFormat) "5:05 PM" else "17:05",
+                state.regenerate(LocalTime.of(17, 5), draft, false, false),
+            )
+        }
+    }
+
+    @Test
+    fun `editing a different alarm replaces the retained draft and follows time format again`() {
+        val state = AlarmTimeFieldState(LocalTime.of(9, 5), initialUse24HourTime = true)
+        state.retainDraft()
+
+        val nextAlarm = state.programmaticText(LocalTime.of(14, 30, 15), true, true)
+
+        assertEquals("2:30:15 PM", state.updateFormat(false, nextAlarm).text)
+    }
+
+    @Test
     fun `time format update reformats a refreshed suggestion`() {
         val state = AlarmTimeFieldState(LocalTime.of(9, 5), initialUse24HourTime = true)
         val regenerated = requireNotNull(
