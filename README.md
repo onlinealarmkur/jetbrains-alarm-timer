@@ -62,6 +62,8 @@ Unit input accepts hours, minutes, and seconds in that order, and each unit can 
 
 The **Alert when overdue by up to** setting controls what happens after the IDE restarts or the computer wakes. An item inside that window alerts normally. An older item is marked **Missed** without playing an old alert. The default window is five minutes, the maximum is 24 hours, and `0s` permits an alert only while the item is still on time.
 
+Live timers use an operating-system monotonic clock that includes sleep on Linux, macOS, and Windows. If native clock access is unavailable, the plugin logs a warning and falls back to JVM elapsed time without changing existing deadlines; in that degraded mode, live timers may pause during sleep. Restart recovery still uses the saved wall-clock deadline.
+
 ## Privacy and support
 
 The plugin stores alarms, timers, and settings locally in the IntelliJ Platform application settings file `alarm-timer.xml`, with roaming disabled. It does not read project files or editor content, create an account, collect telemetry or analytics, download audio, or make automatic network requests. Documentation and website links open only when you click them.
@@ -91,6 +93,10 @@ Before a release, run the complete unsigned check:
 ```
 
 This task compiles the plugin, runs both test tiers, checks the plugin configuration and ZIP structure, runs JetBrains Plugin Verifier, and writes the ZIP to `build/distributions/`.
+
+It also validates the current version's dated changelog entry, release link, and change notes before you commit or tag. To check just that metadata, run `scripts/validate-release.sh metadata <pluginVersion>`. The separate `identity` check still requires a clean worktree and an unused release tag.
+
+The verifier includes Android Studio Quail 4 (2026.1.4 Patch 1) alongside IntelliJ IDEA, PyCharm, and WebStorm. To use an already installed Android Studio instead of downloading another verification copy, add `-PandroidStudioLocalPath="/Applications/Android Studio.app/Contents"` to that command (use your installation path on other systems). This substitutes the Android Studio target; it does not skip verification. CI uses the pinned download and its checked-in checksums.
 
 If you change either release script, run ShellCheck too:
 
@@ -171,13 +177,28 @@ The workflow automatically creates the GitHub release but never publishes to Jet
 
 </details>
 
-## Release notes for 1.0.0
+## Release notes for 1.1.0
 
-Initial release with one-time alarms, multiple countdown timers, and a status-bar view of the next deadline. Alarms support 12-hour and 24-hour time. The plugin restores application-wide state, handles overdue items using a configurable recovery window, sends IDE notifications, and can play a procedural alert sound. The interface is available in ten languages.
+Timers now count time spent in system sleep and preserve their overdue age when saved. Alert volume works on audio devices without hardware volume controls. Failed alarm edits keep your unsaved text. Release verification now includes Android Studio and independent checks for both provenance attestations.
 
 ## Changelog
 
 ### [Unreleased]
+
+### [1.1.0] - 2026-09-27
+
+#### Fixed
+
+- Preserve overdue timer age across save and restart, including saves before startup recovery.
+- Count system sleep in live timers without treating wall-clock changes as elapsed time.
+- Apply alert volume in software when a mixer has no hardware gain control.
+- Retain alarm drafts when another project window changes or removes the edited alarm.
+
+#### Changed
+
+- Verify Android Studio compatibility in the release gate.
+- Test unsigned and signed provenance requirements independently.
+- Update build tooling and stable IDE verification targets while retaining IntelliJ Platform 2025.2 compatibility.
 
 ### [1.0.0] - 2026-08-25
 
@@ -189,9 +210,14 @@ Initial release with one-time alarms, multiple countdown timers, and a status-ba
 - Application-wide persistence, overdue recovery, notifications, and optional local sound.
 - English, Brazilian Portuguese, French, German, Japanese, Korean, Russian, Simplified Chinese, Spanish, and Turkish interfaces.
 
-[Unreleased]: https://github.com/onlinealarmkur/jetbrains-alarm-timer/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/onlinealarmkur/jetbrains-alarm-timer/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/onlinealarmkur/jetbrains-alarm-timer/releases/tag/1.1.0
 [1.0.0]: https://github.com/onlinealarmkur/jetbrains-alarm-timer/releases/tag/1.0.0
 
 ## License
 
-The source and documentation use the [MIT License](LICENSE). The Online Alarm Kur name, logo, and icon artwork are reserved brand assets and are not licensed for another product or service. The plugin includes its icons so JetBrains IDEs can display them. Maintained by Burak Ozdemir.
+The source code uses the [MIT License](LICENSE). Created by [Online Alarm Kur](https://onlinealarmkur.com/en/), which offers an online alarm clock, timer, stopwatch, countdown, and more.
+
+## Trademarks and brand assets
+
+The MIT License applies to the source code only. The Online Alarm Kur name, logos, icons, and other brand assets are not covered by it and remain reserved. The Online Alarm Kur name, logo, and icon artwork are reserved brand assets and are not licensed for use with another product or service. The plugin includes its icons so JetBrains IDEs can display them.

@@ -10,6 +10,7 @@ fail() {
 usage() {
   cat >&2 <<'EOF'
 Usage:
+  scripts/validate-release.sh metadata VERSION [REPOSITORY]
   scripts/validate-release.sh identity VERSION [REPOSITORY]
   scripts/validate-release.sh tagged-identity VERSION [REPOSITORY]
   scripts/validate-release.sh archive VERSION unsigned|signed [REPOSITORY]
@@ -58,18 +59,15 @@ validate_change_notes() {
     fail "$notes must contain a non-blank change-notes body after the version header"
 }
 
-validate_identity() {
+validate_metadata() {
   local version=$1
   local repository=$2
-  local tag_state=$3
   local properties="$repository/gradle.properties"
   local changelog="$repository/README.md"
   local change_notes="$repository/MARKETPLACE_CHANGE_NOTES.html"
-  local configured_version repository_url tag version_pattern tag_commit head_commit
+  local configured_version repository_url version_pattern
 
   validate_version "$version"
-  git -C "$repository" rev-parse --git-dir >/dev/null 2>&1 ||
-    fail "$repository is not a Git repository"
   [[ -f "$properties" ]] || fail "missing $properties"
   [[ -f "$changelog" ]] || fail "missing $changelog"
 
@@ -88,6 +86,17 @@ validate_identity() {
     fail "README.md release link for [$version] must target $repository_url/releases/tag/$version"
 
   validate_change_notes "$version" "$change_notes"
+}
+
+validate_identity() {
+  local version=$1
+  local repository=$2
+  local tag_state=$3
+  local tag tag_commit head_commit
+
+  validate_metadata "$version" "$repository"
+  git -C "$repository" rev-parse --git-dir >/dev/null 2>&1 ||
+    fail "$repository is not a Git repository"
 
   tag="$version"
   case "$tag_state" in
@@ -151,6 +160,11 @@ command=$1
 version=$2
 
 case "$command" in
+  metadata)
+    [[ $# -le 3 ]] || usage
+    validate_metadata "$version" "${3:-.}"
+    printf 'release metadata validated: version=%s\n' "$version"
+    ;;
   identity)
     [[ $# -le 3 ]] || usage
     validate_identity "$version" "${3:-.}" absent

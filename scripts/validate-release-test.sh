@@ -61,6 +61,17 @@ require_job_order() {
   ' "$workflow" || contract_failure "$description"
 }
 
+require_job_step_literal() {
+  local workflow=$1 job=$2 step=$3 expected=$4 description=$5
+
+  awk -v job="  $job:" -v step="      - name: $step" -v expected="$expected" '
+    /^  [[:alnum:]_-]+:$/ { in_job = ($0 == job); in_step = 0; next }
+    in_job && /^      - / { in_step = ($0 == step) }
+    in_job && in_step && !/^[[:space:]]*#/ && index($0, expected) { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$workflow" || contract_failure "$description"
+}
+
 # The change notes are versioned release source, so this contract is pinned to
 # whatever version the tree currently declares instead of to a frozen sentence.
 require_current_change_notes() {
@@ -94,6 +105,11 @@ require_current_change_notes() {
     require_literal "$listing" "$line" \
       "README must mirror the $plugin_version change-notes body"
   done <"$body_file"
+
+  # Validate real release metadata before tagging, even with uncommitted implementation work.
+  # The identity modes still enforce a clean Git worktree and the tag constraints separately.
+  "$validator" metadata "$plugin_version" "$repository_root" ||
+    contract_failure 'current release metadata must pass the release identity metadata checks'
 }
 
 require_lifecycle_copy() {
@@ -178,14 +194,17 @@ validate_release_contract() {
     'zipSigner("0.1.43")' \
     'release signing must pin the Marketplace ZIP Signer version'
   require_literal "$repository_root/build.gradle.kts" \
-    'create(IntelliJPlatformType.IntellijIdea, "2026.2.1")' \
+    'create(IntelliJPlatformType.IntellijIdea, "2026.2.3")' \
     'release verification must pin the current stable IntelliJ IDEA version'
   require_literal "$repository_root/build.gradle.kts" \
-    'create(IntelliJPlatformType.PyCharm, "2026.2.1")' \
+    'create(IntelliJPlatformType.PyCharm, "2026.2.3")' \
     'release verification must pin the current stable PyCharm version'
   require_literal "$repository_root/build.gradle.kts" \
-    'create(IntelliJPlatformType.WebStorm, "2026.2.1")' \
+    'create(IntelliJPlatformType.WebStorm, "2026.2.3")' \
     'release verification must pin the current stable WebStorm version'
+  require_active_literal "$repository_root/build.gradle.kts" \
+    'create(IntelliJPlatformType.AndroidStudio, "2026.1.4.8")' \
+    'release verification must include pinned Android Studio'
   require_literal "$repository_root/src/main/resources/META-INF/plugin.xml" \
     '<idea-plugin url="https://onlinealarmkur.com/en/">' \
     'plugin descriptor must use the public plugin homepage'
@@ -268,6 +287,18 @@ validate_release_contract() {
   require_job_literal "$repository_root/.github/workflows/release.yml" build \
     "scripts/validate-release.sh archive \"\$RELEASE_VERSION\" unsigned" \
     'release workflow must select the exact versioned ZIP'
+  require_job_step_literal "$repository_root/.github/workflows/release.yml" build \
+    'Attest verified unsigned input' \
+    'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6' \
+    'build job must attest the verified unsigned ZIP and checksum'
+  require_job_step_literal "$repository_root/.github/workflows/release.yml" build \
+    'Attest verified unsigned input' \
+    "\${{ steps.release-archive.outputs.archive }}" \
+    'unsigned attestation must include the verified ZIP'
+  require_job_step_literal "$repository_root/.github/workflows/release.yml" build \
+    'Attest verified unsigned input' \
+    "\${{ steps.release-archive.outputs.checksum }}" \
+    'unsigned attestation must include its checksum'
   require_job_literal "$repository_root/.github/workflows/release.yml" sign \
     'environment: plugin-signing' \
     'signing secrets must be scoped to the plugin-signing environment'
@@ -436,6 +467,22 @@ expect_contract_failure() {
   }
 }
 
+contract_fixture=$(new_contract_fixture missing-current-changelog-heading)
+sed -i.bak '/^### \[[0-9]/d' "$contract_fixture/README.md"
+rm "$contract_fixture/README.md.bak"
+expect_contract_failure \
+  'current release has no dated changelog entry' \
+  'current release metadata must pass the release identity metadata checks' \
+  "$contract_fixture"
+
+contract_fixture=$(new_contract_fixture missing-current-release-link)
+sed -i.bak '/^\[[0-9].*releases\/tag\//d' "$contract_fixture/README.md"
+rm "$contract_fixture/README.md.bak"
+expect_contract_failure \
+  'current release has no canonical release link' \
+  'current release metadata must pass the release identity metadata checks' \
+  "$contract_fixture"
+
 contract_fixture=$(new_contract_fixture incomplete-gate)
 sed -i.bak \
   's|./gradlew --dependency-verification=strict clean verifyReleaseCandidate|./gradlew test|' \
@@ -502,12 +549,44 @@ expect_contract_failure \
 
 contract_fixture=$(new_contract_fixture missing-attestation)
 sed -i.bak \
-  's|actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6|actions/attest@missing|' \
+  "/^  sign:/,\$s|actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6|actions/attest@missing|" \
   "$contract_fixture/.github/workflows/release.yml"
 rm "$contract_fixture/.github/workflows/release.yml.bak"
 expect_contract_failure \
   'release provenance attestation is removed' \
   'signing job must attest the signed ZIP and checksum' \
+  "$contract_fixture"
+
+contract_fixture=$(new_contract_fixture missing-unsigned-attestation)
+sed -i.bak \
+  '/Attest verified unsigned input/,/Transfer verified unsigned input/s|actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6|actions/attest@missing|' \
+  "$contract_fixture/.github/workflows/release.yml"
+rm "$contract_fixture/.github/workflows/release.yml.bak"
+expect_contract_failure \
+  'unsigned provenance is removed while signed provenance remains' \
+  'build job must attest the verified unsigned ZIP and checksum' \
+  "$contract_fixture"
+
+for subject in archive checksum; do
+  contract_fixture=$(new_contract_fixture "missing-unsigned-subject-$subject")
+  sed -i.bak \
+    "/Attest verified unsigned input/,/Transfer verified unsigned input/s/steps.release-archive.outputs.$subject/steps.release-archive.outputs.missing/" \
+    "$contract_fixture/.github/workflows/release.yml"
+  rm "$contract_fixture/.github/workflows/release.yml.bak"
+  if [[ "$subject" == archive ]]; then
+    expected_failure='unsigned attestation must include the verified ZIP'
+  else
+    expected_failure='unsigned attestation must include its checksum'
+  fi
+  expect_contract_failure "unsigned provenance loses its $subject subject" "$expected_failure" "$contract_fixture"
+done
+
+contract_fixture=$(new_contract_fixture missing-android-studio)
+sed -i.bak '/create(IntelliJPlatformType.AndroidStudio,/d' "$contract_fixture/build.gradle.kts"
+rm "$contract_fixture/build.gradle.kts.bak"
+expect_contract_failure \
+  'Android Studio is removed from the release gate' \
+  'release verification must include pinned Android Studio' \
   "$contract_fixture"
 
 contract_fixture=$(new_contract_fixture unauthorized-actor)
@@ -578,6 +657,7 @@ expect_failure() {
 }
 
 fixture=$(new_fixture positive)
+"$validator" metadata 1.0.0 "$fixture"
 "$validator" identity 1.0.0 "$fixture"
 
 expect_failure "dispatch and Gradle versions differ" \
@@ -590,12 +670,16 @@ sed -i.bak 's/### \[1.0.0\] - 2026-07-15/### [1.0.0]/' "$fixture/README.md"
 rm "$fixture/README.md.bak"
 expect_failure "changelog heading is not dated" \
   "$validator" identity 1.0.0 "$fixture"
+expect_failure "metadata rejects an undated changelog heading" \
+  "$validator" metadata 1.0.0 "$fixture"
 
 fixture=$(new_fixture changelog-link)
 sed -i.bak 's|releases/tag/1.0.0|releases/tag/9.9.9|' "$fixture/README.md"
 rm "$fixture/README.md.bak"
 expect_failure "changelog link differs" \
   "$validator" identity 1.0.0 "$fixture"
+expect_failure "metadata rejects a mismatched release link" \
+  "$validator" metadata 1.0.0 "$fixture"
 
 fixture=$(new_fixture local-tag)
 git -C "$fixture" tag 1.0.0
@@ -640,6 +724,7 @@ expect_failure "marketplace change notes body is blank" \
 
 fixture=$(new_fixture dirty-worktree)
 touch "$fixture/untracked.txt"
+"$validator" metadata 1.0.0 "$fixture"
 expect_failure "release worktree is dirty" \
   "$validator" identity 1.0.0 "$fixture"
 

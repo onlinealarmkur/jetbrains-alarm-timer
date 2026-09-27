@@ -304,6 +304,93 @@ class AlarmTimerPlatformSmokeTest {
     }
 
     @Test
+    fun `failed stale edits retain all draft fields after another window changes or removes the alarm`() {
+        listOf(false, true).forEach { removed ->
+            withPanel { service, panel ->
+                val submit = namedComponent<JButton>(panel, AlarmTimerPanelComponentNames.ALARM_SUBMIT)
+                val edit = namedComponent<JButton>(panel, AlarmTimerPanelComponentNames.ACTIVE_EDIT_ALARM)
+                enterAlarm(panel, service, safeFutureAlarm(2, 34), "Original")
+                submit.doClick(0)
+                val original = service.items().single()
+                selectItem(itemList(panel, AlarmTimerPanelComponentNames.ACTIVE_LIST), original)
+                edit.doClick(0)
+                enterAlarm(panel, service, safeFutureAlarm(3, 35), "Unsaved draft")
+                val fields = listOf(
+                    AlarmTimerPanelComponentNames.ALARM_TIME,
+                    AlarmTimerPanelComponentNames.ALARM_DATE,
+                    AlarmTimerPanelComponentNames.ALARM_LABEL,
+                ).map { namedComponent<JTextField>(panel, it) }
+                val draft = fields.map { it.text }
+                if (removed) {
+                    assertTrue(service.cancel(original.id))
+                } else {
+                    assertTrue(service.editAlarm(original, original.targetEpochMs, "Changed elsewhere"))
+                }
+                val beforeSubmit = service.items()
+                val messages = mutableListOf<String>()
+                val previousDialog = TestDialogManager.setTestDialog(TestDialog { message ->
+                    messages += message
+                    0
+                })
+                try {
+                    submit.doClick(0)
+                } finally {
+                    TestDialogManager.setTestDialog(previousDialog)
+                }
+                assertEquals(1, messages.size)
+                assertEquals(draft, fields.map { it.text })
+                assertEquals(beforeSubmit, service.items(), "A stale save must not create or overwrite an alarm.")
+            }
+        }
+    }
+
+    @Test
+    fun `label-only stale drafts survive unrelated refreshes and retry at the original time`() {
+        listOf(false, true).forEach { removed ->
+            withPanel { service, panel ->
+                val submit = namedComponent<JButton>(panel, AlarmTimerPanelComponentNames.ALARM_SUBMIT)
+                val edit = namedComponent<JButton>(panel, AlarmTimerPanelComponentNames.ACTIVE_EDIT_ALARM)
+                val target = safeFutureAlarm(2, 34)
+                enterAlarm(panel, service, target, "Original")
+                submit.doClick(0)
+                val original = service.items().single()
+                selectItem(itemList(panel, AlarmTimerPanelComponentNames.ACTIVE_LIST), original)
+                edit.doClick(0)
+                namedComponent<JTextField>(panel, AlarmTimerPanelComponentNames.ALARM_LABEL).text = "Retained draft"
+                val fields = listOf(
+                    AlarmTimerPanelComponentNames.ALARM_TIME,
+                    AlarmTimerPanelComponentNames.ALARM_DATE,
+                    AlarmTimerPanelComponentNames.ALARM_LABEL,
+                ).map { namedComponent<JTextField>(panel, it) }
+                val draft = fields.map { it.text }
+                if (removed) {
+                    assertTrue(service.cancel(original.id))
+                } else {
+                    assertTrue(service.editAlarm(original, original.targetEpochMs, "Changed elsewhere"))
+                }
+                val previousDialog = TestDialogManager.setTestDialog(TestDialog.OK)
+                try {
+                    submit.doClick(0)
+                } finally {
+                    TestDialogManager.setTestDialog(previousDialog)
+                }
+                assertEquals("Set Alarm", submit.text)
+                assertEquals(draft, fields.map { it.text })
+
+                // Both changes synchronously refresh the real panel, without touching its draft.
+                service.startTimer(60_000, "Unrelated timer")
+                service.updateSettings(service.settings().copy(use24HourTime = !service.settings().use24HourTime))
+                assertEquals(draft, fields.map { it.text })
+
+                submit.doClick(0)
+                val retried = service.items().single { it.label == "Retained draft" }
+                assertEquals(target.toInstant().toEpochMilli(), retried.targetEpochMs)
+                assertEquals(ItemKind.ALARM, retried.kind)
+            }
+        }
+    }
+
+    @Test
     fun `history remove deletes only the selected item through the real control`() = withPanel { service, panel ->
         val historyItems = loadHistory(service)
         val completed = historyItems.single { it.status == ItemStatus.COMPLETED }

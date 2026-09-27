@@ -218,9 +218,16 @@ intellijPlatform {
     pluginVerification {
         ides {
             current()
-            create(IntelliJPlatformType.IntellijIdea, "2026.2.1")
-            create(IntelliJPlatformType.PyCharm, "2026.2.1")
-            create(IntelliJPlatformType.WebStorm, "2026.2.1")
+            create(IntelliJPlatformType.IntellijIdea, "2026.2.3")
+            create(IntelliJPlatformType.PyCharm, "2026.2.3")
+            create(IntelliJPlatformType.WebStorm, "2026.2.3")
+            // Use an already installed IDE for local verification; CI resolves the pinned release.
+            val androidStudioLocalPath = providers.gradleProperty("androidStudioLocalPath")
+            if (androidStudioLocalPath.isPresent) {
+                local(file(androidStudioLocalPath.get()))
+            } else {
+                create(IntelliJPlatformType.AndroidStudio, "2026.1.4.8")
+            }
         }
     }
 

@@ -17,7 +17,6 @@ import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
 import javax.sound.sampled.FloatControl
 import kotlin.math.PI
-import kotlin.math.log10
 import kotlin.math.sin
 
 internal class SoundPlayer(
@@ -90,15 +89,16 @@ internal class JavaxSoundBackend(
         stop()
         if (headless() || volumePercent <= 0) return
         val format = AudioFormat(SAMPLE_RATE.toFloat(), 16, 1, true, false)
-        val audio = toneBytes()
+        // Scale the PCM on every mixer, including those with no MASTER_GAIN control.
+        val audio = toneBytes(volumePercent)
         val stream = AudioInputStream(ByteArrayInputStream(audio), format, (audio.size / format.frameSize).toLong())
         val next = clipFactory()
         try {
             stream.use(next::open)
             if (next.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 val control = next.getControl(FloatControl.Type.MASTER_GAIN) as FloatControl
-                val gain = gainDecibels(volumePercent).toFloat()
-                control.value = gain.coerceIn(control.minimum, control.maximum)
+                // Do not apply the user's volume twice; neutralize any mixer default gain.
+                control.value = 0f.coerceIn(control.minimum, control.maximum)
             }
             next.loop(Clip.LOOP_CONTINUOUSLY)
             clip = next
@@ -121,14 +121,13 @@ internal class JavaxSoundBackend(
     }
 }
 
-internal fun gainDecibels(volumePercent: Int): Double = 20.0 * log10(volumePercent.coerceIn(1, 100) / 100.0)
-
-internal fun toneBytes(): ByteArray {
+internal fun toneBytes(volumePercent: Int = 100): ByteArray {
+    val volume = volumePercent.coerceIn(0, 100) / 100.0
     val samples = SAMPLE_RATE / 2
     val result = ByteArray(samples * 2)
     repeat(samples) { index ->
         val envelope = if (index < SAMPLE_RATE / 3) 1.0 else 0.0
-        val sample = (sin(2 * PI * 880 * index / SAMPLE_RATE) * Short.MAX_VALUE * 0.3 * envelope).toInt().toShort()
+        val sample = (sin(2 * PI * 880 * index / SAMPLE_RATE) * Short.MAX_VALUE * 0.3 * envelope * volume).toInt().toShort()
         result[index * 2] = (sample.toInt() and 0xff).toByte()
         result[index * 2 + 1] = (sample.toInt() shr 8 and 0xff).toByte()
     }

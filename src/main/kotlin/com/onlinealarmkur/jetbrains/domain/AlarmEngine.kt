@@ -59,8 +59,12 @@ class AlarmEngine(
         val wallNow = clock.millis()
         val elapsedNow = elapsedTimeSource.nowMillis()
         return items.values.map { item ->
-            if (item.kind == ItemKind.TIMER && item.status == ItemStatus.ACTIVE) {
-                item.copy(targetEpochMs = wallNow + timerRemaining(item, wallNow, elapsedNow))
+            if (item.kind == ItemKind.TIMER && item.status == ItemStatus.ACTIVE &&
+                item.id !in restoredActiveIdsAwaitingStartup
+            ) {
+                // Unlike the display remainder, persistence must retain negative offsets:
+                // clamping an overdue timer to zero makes an old alert look newly due.
+                item.copy(targetEpochMs = wallNow + (timerDeadline(item, wallNow, elapsedNow) - elapsedNow))
             } else {
                 item
             }
