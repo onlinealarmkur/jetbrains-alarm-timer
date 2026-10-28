@@ -321,10 +321,10 @@ validate_release_contract() {
     './gradlew --offline --dependency-verification=strict --no-daemon signPlugin verifyPluginSignature' \
     'signing job must sign and verify the exact transferred ZIP'
   require_job_literal "$repository_root/.github/workflows/release.yml" sign \
-    'verifySignPluginIsolation dependencies' \
+    'verifySignPluginIsolation prepareSigningToolchain' \
     'signing job must verify signing isolation before exposing secrets'
   require_job_literal "$repository_root/.github/workflows/release.yml" sign \
-    '--configuration marketplaceZipSigner' \
+    'prepareSigningToolchain' \
     'signing job must resolve its complete signing toolchain before exposing secrets'
   require_job_order "$repository_root/.github/workflows/release.yml" sign \
     'Resolve and verify the signing toolchain before exposing secrets' \
@@ -407,6 +407,13 @@ validate_release_contract() {
   require_job_literal "$repository_root/.github/workflows/ci.yml" build-test-verify \
     'Rehearse plugin signing with an ephemeral non-production certificate' \
     'CI must execute the non-production signing rehearsal'
+  require_job_literal "$repository_root/.github/workflows/ci.yml" build-test-verify \
+    'verifySignPluginIsolation prepareSigningToolchain' \
+    'CI must resolve signer artifacts before its offline rehearsal'
+  require_job_order "$repository_root/.github/workflows/ci.yml" build-test-verify \
+    'Resolve and verify the signing toolchain' \
+    'Rehearse plugin signing with an ephemeral non-production certificate' \
+    'CI must prepare the toolchain before creating signing material'
 
   require_literal "$repository_root/README.md" \
     'jetbrains-<pluginVersion>-signed.zip.sha256' \

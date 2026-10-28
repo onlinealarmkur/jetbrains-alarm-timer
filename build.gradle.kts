@@ -1,5 +1,6 @@
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.Sync
 import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
@@ -116,6 +117,15 @@ val unsignedPluginArchive =
     layout.buildDirectory.file("distributions/jetbrains-${project.version}.zip")
 val signedPluginArchive =
     layout.buildDirectory.file("distributions/jetbrains-${project.version}-signed.zip")
+
+// A dependency report resolves metadata only. Materialize the verified signer
+// artifacts before the isolated signing step switches to offline operation.
+tasks.register<Sync>("prepareSigningToolchain") {
+    group = "build setup"
+    description = "Downloads and verifies signer artifacts before offline signing."
+    from(configurations.named("marketplaceZipSigner"))
+    into(layout.buildDirectory.dir("signing-toolchain"))
+}
 
 tasks.named<SignPluginTask>("signPlugin") {
     archiveFile.set(unsignedPluginArchive)

@@ -170,8 +170,7 @@ jobs:
       - name: Resolve and verify the signing toolchain before exposing secrets
         run: >-
           ./gradlew --dependency-verification=strict --no-daemon
-          verifySignPluginIsolation dependencies
-          --configuration marketplaceZipSigner
+          verifySignPluginIsolation prepareSigningToolchain
       - name: Sign and verify exact release ZIP
         env:
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
