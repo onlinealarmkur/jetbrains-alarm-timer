@@ -44,7 +44,7 @@ dependencies {
         intellijIdeaCommunity(providers.gradleProperty("platformVersion").get())
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.JUnit5)
-        pluginVerifier("1.410")
+        pluginVerifier("1.411")
         zipSigner("0.1.43")
     }
 }

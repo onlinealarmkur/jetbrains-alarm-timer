@@ -188,7 +188,7 @@ validate_release_contract() {
     'changeNotes = marketplaceChangeNotes' \
     'Gradle plugin configuration must package the versioned change notes'
   require_literal "$repository_root/build.gradle.kts" \
-    'pluginVerifier("1.410")' \
+    'pluginVerifier("1.411")' \
     'release verification must pin the IntelliJ Plugin Verifier version'
   require_literal "$repository_root/build.gradle.kts" \
     'zipSigner("0.1.43")' \
@@ -340,7 +340,7 @@ validate_release_contract() {
     'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6' \
     'signing job must attest the signed ZIP and checksum'
   require_job_literal "$repository_root/.github/workflows/release.yml" sign \
-    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
+    'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' \
     'release workflow must retain the downloadable files'
   require_job_literal "$repository_root/.github/workflows/release.yml" sign \
     'retention-days: 90' \
@@ -352,7 +352,7 @@ validate_release_contract() {
     'contents: write' \
     'GitHub release job must receive only the repository-content write permission it needs'
   require_job_literal "$repository_root/.github/workflows/release.yml" release \
-    'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
+    'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333' \
     'GitHub release job must download the retained signed artifact'
   require_job_literal "$repository_root/.github/workflows/release.yml" release \
     "name: alarm-and-timer-\${{ needs.build.outputs.version }}" \
